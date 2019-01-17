@@ -1,222 +1,120 @@
-//Demonstration of Craig Reynolds' "Flocking" behavior. 
-//See: http://www.red3d.com/cwr/ Rules: Cohesion, Separation, Alignment (from natureofcode.com).
+// Drawn from https://p5js.org/examples/simulate-penrose-tiles.html
+// This is a port by David Blitz of the "Penrose Tile" example from processing.org/examples
 
-var flock;
+var ds;
 
 function setup() {
-  createCanvas(640,360);
-  createP("Drag the mouse to generate new boids.");
-  
-  flock = new Flock();
-  // Add an initial set of boids into the system
-  for (var i = 0; i < 100; i++) {
-    var b = new Boid(width/2,height/2);
-    flock.addBoid(b);
-  }
+  createCanvas(710, 400);
+  ds = new PenroseLSystem();
+  //please, play around with the following line
+  ds.simulate(5);
 }
 
 function draw() {
-  background(51);
-  flock.run();
+  background(0);
+  ds.render();
 }
 
-// Add a new boid into the System
-function mouseDragged() {
-  flock.addBoid(new Boid(mouseX,mouseY));
+function PenroseLSystem() {
+    this.steps = 0;
+
+   //these are axiom and rules for the penrose rhombus l-system
+   //a reference would be cool, but I couldn't find a good one
+    this.axiom = "[X]++[X]++[X]++[X]++[X]";
+    this.ruleW = "YF++ZF----XF[-YF----WF]++";
+    this.ruleX = "+YF--ZF[---WF--XF]+";
+    this.ruleY = "-WF++XF[+++YF++ZF]-";
+    this.ruleZ = "--YF++++WF[+ZF++++XF]--XF";
+
+    //please play around with the following two lines
+    this.startLength = 460.0;
+    this.theta = TWO_PI / 10.0; //36 degrees, try TWO_PI / 6.0, ...
+    this.reset();
 }
 
-// The Nature of Code
-// Daniel Shiffman
-// http://natureofcode.com
-
-// Flock object
-// Does very little, simply manages the array of all the boids
-
-function Flock() {
-  // An array for all the boids
-  this.boids = []; // Initialize the array
-}
-
-Flock.prototype.run = function() {
-  for (var i = 0; i < this.boids.length; i++) {
-    this.boids[i].run(this.boids);  // Passing the entire list of boids to each boid individually
+PenroseLSystem.prototype.simulate = function (gen) {
+  while (this.getAge() < gen) {
+    this.iterate(this.production);
   }
 }
 
-Flock.prototype.addBoid = function(b) {
-  this.boids.push(b);
+PenroseLSystem.prototype.reset = function () {
+    this.production = this.axiom;
+    this.drawLength = this.startLength;
+    this.generations = 0;
+  }
+
+PenroseLSystem.prototype.getAge = function () {
+    return this.generations;
+  }
+
+//apply substitution rules to create new iteration of production string
+PenroseLSystem.prototype.iterate = function() {
+    var newProduction = "";
+
+    for(var i=0; i<this.production.length; ++i) {
+      var step = this.production.charAt(i);
+      //if current character is 'W', replace current character
+      //by corresponding rule
+      if (step == 'W') {
+        newProduction = newProduction + this.ruleW;
+      }
+      else if (step == 'X') {
+        newProduction = newProduction + this.ruleX;
+      }
+      else if (step == 'Y') {
+        newProduction = newProduction + this.ruleY;
+      }
+      else if (step == 'Z') {
+        newProduction = newProduction + this.ruleZ;
+      }
+      else {
+        //drop all 'F' characters, don't touch other
+        //characters (i.e. '+', '-', '[', ']'
+        if (step != 'F') {
+          newProduction = newProduction + step;
+        }
+      }
+    }
+
+    this.drawLength = this.drawLength * 0.5;
+    this.generations++;
+    this.production = newProduction;
 }
 
-// The Nature of Code
-// Daniel Shiffman
-// http://natureofcode.com
+//convert production string to a turtle graphic
+PenroseLSystem.prototype.render = function () {
+    translate(width/2, height/2);
 
-// Boid class
-// Methods for Separation, Cohesion, Alignment added
+    this.steps += 20;
+    if(this.steps > this.production.length) {
+      this.steps = this.production.length;
+    }
 
-function Boid(x,y) {
-  this.acceleration = createVector(0,0);
-  this.velocity = createVector(random(-1,1),random(-1,1));
-  this.position = createVector(x,y);
-  this.r = 3.0;
-  this.maxspeed = 3;    // Maximum speed
-  this.maxforce = 0.05; // Maximum steering force
-}
+    for(var i=0; i<this.steps; ++i) {
+      var step = this.production.charAt(i);
 
-Boid.prototype.run = function(boids) {
-  this.flock(boids);
-  this.update();
-  this.borders();
-  this.render();
-}
-
-Boid.prototype.applyForce = function(force) {
-  // We could add mass here if we want A = F / M
-  this.acceleration.add(force);
-}
-
-// We accumulate a new acceleration each time based on three rules
-Boid.prototype.flock = function(boids) {
-  var sep = this.separate(boids);   // Separation
-  var ali = this.align(boids);      // Alignment
-  var coh = this.cohesion(boids);   // Cohesion
-  // Arbitrarily weight these forces
-  sep.mult(1.5);
-  ali.mult(1.0);
-  coh.mult(1.0);
-  // Add the force vectors to acceleration
-  this.applyForce(sep);
-  this.applyForce(ali);
-  this.applyForce(coh);
-}
-
-// Method to update location
-Boid.prototype.update = function() {
-  // Update velocity
-  this.velocity.add(this.acceleration);
-  // Limit speed
-  this.velocity.limit(this.maxspeed);
-  this.position.add(this.velocity);
-  // Reset accelertion to 0 each cycle
-  this.acceleration.mult(0);
-}
-
-// A method that calculates and applies a steering force towards a target
-// STEER = DESIRED MINUS VELOCITY
-Boid.prototype.seek = function(target) {
-  var desired = p5.Vector.sub(target,this.position);  // A vector pointing from the location to the target
-  // Normalize desired and scale to maximum speed
-  desired.normalize();
-  desired.mult(this.maxspeed);
-  // Steering = Desired minus Velocity
-  var steer = p5.Vector.sub(desired,this.velocity);
-  steer.limit(this.maxforce);  // Limit to maximum steering force
-  return steer;
-}
-
-Boid.prototype.render = function() {
-  // Draw a triangle rotated in the direction of velocity
-  var theta = this.velocity.heading() + radians(90);
-  fill(127);
-  stroke(200);
-  push();
-  translate(this.position.x,this.position.y);
-  rotate(theta);
-  beginShape();
-  vertex(0, -this.r*2);
-  vertex(-this.r, this.r*2);
-  vertex(this.r, this.r*2);
-  endShape(CLOSE);
-  pop();
-}
-
-// Wraparound
-Boid.prototype.borders = function() {
-  if (this.position.x < -this.r)  this.position.x = width +this.r;
-  if (this.position.y < -this.r)  this.position.y = height+this.r;
-  if (this.position.x > width +this.r) this.position.x = -this.r;
-  if (this.position.y > height+this.r) this.position.y = -this.r;
-}
-
-// Separation
-// Method checks for nearby boids and steers away
-Boid.prototype.separate = function(boids) {
-  var desiredseparation = 25.0;
-  var steer = createVector(0,0);
-  var count = 0;
-  // For every boid in the system, check if it's too close
-  for (var i = 0; i < boids.length; i++) {
-    var d = p5.Vector.dist(this.position,boids[i].position);
-    // If the distance is greater than 0 and less than an arbitrary amount (0 when you are yourself)
-    if ((d > 0) && (d < desiredseparation)) {
-      // Calculate vector pointing away from neighbor
-      var diff = p5.Vector.sub(this.position,boids[i].position);
-      diff.normalize();
-      diff.div(d);        // Weight by distance
-      steer.add(diff);
-      count++;            // Keep track of how many
+      //'W', 'X', 'Y', 'Z' symbols don't actually correspond to a turtle action
+      if( step == 'F') {
+        stroke(255, 60);
+        for(var j=0; j < this.repeats; j++) {
+          line(0, 0, 0, -this.drawLength);
+          noFill();
+          translate(0, -this.drawLength);
+        }
+        this.repeats = 1;
+      }
+      else if (step == '+') {
+        rotate(this.theta);
+      }
+      else if (step == '-') {
+        rotate(-this.theta);
+      }
+      else if (step == '[') {
+        push();
+      }
+      else if (step == ']') {
+        pop();
+      }
     }
   }
-  // Average -- divide by how many
-  if (count > 0) {
-    steer.div(count);
-  }
-
-  // As long as the vector is greater than 0
-  if (steer.mag() > 0) {
-    // Implement Reynolds: Steering = Desired - Velocity
-    steer.normalize();
-    steer.mult(this.maxspeed);
-    steer.sub(this.velocity);
-    steer.limit(this.maxforce);
-  }
-  return steer;
-}
-
-// Alignment
-// For every nearby boid in the system, calculate the average velocity
-Boid.prototype.align = function(boids) {
-  var neighbordist = 50;
-  var sum = createVector(0,0);
-  var count = 0;
-  for (var i = 0; i < boids.length; i++) {
-    var d = p5.Vector.dist(this.position,boids[i].position);
-    if ((d > 0) && (d < neighbordist)) {
-      sum.add(boids[i].velocity);
-      count++;
-    }
-  }
-  if (count > 0) {
-    sum.div(count);
-    sum.normalize();
-    sum.mult(this.maxspeed);
-    var steer = p5.Vector.sub(sum,this.velocity);
-    steer.limit(this.maxforce);
-    return steer;
-  } else {
-    return createVector(0,0);
-  }
-}
-
-// Cohesion
-// For the average location (i.e. center) of all nearby boids, calculate steering vector towards that location
-Boid.prototype.cohesion = function(boids) {
-  var neighbordist = 50;
-  var sum = createVector(0,0);   // Start with empty vector to accumulate all locations
-  var count = 0;
-  for (var i = 0; i < boids.length; i++) {
-    var d = p5.Vector.dist(this.position,boids[i].position);
-    if ((d > 0) && (d < neighbordist)) {
-      sum.add(boids[i].position); // Add location
-      count++;
-    }
-  }
-  if (count > 0) {
-    sum.div(count);
-    return this.seek(sum);  // Steer towards the location
-  } else {
-    return createVector(0,0);
-  }
-}
-
-
