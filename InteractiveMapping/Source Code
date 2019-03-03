@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Leaflet Exercise</title>
+	<meta charset="utf-8" />
+
+	<!-- Leaflet styles and code. Place in the <head></head> element. -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" />	
+	<script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+
+	<!-- jQuery is a library that simplifies many things in JavaScript. 
+	     We'll use it to retrieve data from the web. -->   
+	<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>	
+	
+</head>
+<body>
+
+  <div id="mapid" style="width: 600px; height: 400px;"></div>
+	<!-- Our web map will get placed into this div element -->
+
+  <div id="controls" style="margin: 15px;">
+    <button id="showAllFacilityButton">All Correctional Facility</button>
+
+    <span style="display:inline-block; width: 30px"></span>
+    <input type="text" id="highlightFacilityTextEntry"
+           placeholder="Prison/Pretrial/Youthcustody">
+    <button id="highlightFacilityButton">Select</button>
+    
+	</div>
+  
+  <script>
+    
+    var map = L.map('mapid',
+                    { 
+      								center: [49.208159, -122.927435],
+      								zoom: 9
+    								}  // this object holds map options
+              );
+    
+		var topoTiles = L.tileLayer(
+      								'https://tiles.wmflabs.org/bw-mapnik/{z}/{x}/{y}.png',
+                      {
+												maxZoom: 17,
+												attribution: 'ivecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+											}
+										).addTo(map);
+
+    var FacilityMarkerOptions = {
+    	radius: 7,
+    	fillColor: "#3F7FBF",
+    	color: "#000",
+    	weight: 2,
+    	opacity: 1,
+    	fillOpacity: 1
+		};
+    
+    var FacilityMarkerHighlightedOptions = {
+    	radius: 7,
+    	fillColor: "#BF3F3F",
+    	color: "#000",
+    	weight: 1,
+    	opacity: 1,
+    	fillOpacity: 1
+		};
+    
+    function onEachFacility(feature, layer) {
+       
+       if (feature.properties && feature.properties.CORRECTIONAL_FACILITY_TYPE) {
+          layer.bindTooltip(feature.properties.CORRECTIONAL_FACILITY_TYPE);
+       }
+    }
+    
+    function FacilityPointToLayer(feature, latlng) {
+
+      
+      
+      if (CORRECTIONAL_FACILITY_TYPEToHighlight === "") {
+        FacilityMarkerOptionsToUse = FacilityMarkerOptions;
+      } else {
+        FacilityMarkerOptionsToUse = FacilityMarkerHighlightedOptions;
+      }
+      
+      
+      return L.circleMarker(
+        latlng,
+        FacilityMarkerOptionsToUse
+      );
+    }
+    
+    function FacilityToFilter (feature, layer) {
+      if(CORRECTIONAL_FACILITY_TYPEToHighlight === "") {
+        return true;
+        
+      }
+      else if (feature.properties && feature.properties.CORRECTIONAL_FACILITY_TYPE) { 
+        return CORRECTIONAL_FACILITY_TYPEToHighlight.toLowerCase() === feature.properties.CORRECTIONAL_FACILITY_TYPE.toLowerCase();
+      } else {
+        return false;
+      }
+    }
+    
+ 		var lastLayerAdded = {};
+    
+    function addFacility() {
+      if(map.hasLayer(lastLayerAdded)){ 
+        map.removeLayer(lastLayerAdded);
+      }
+      lastLayerAdded = L.geoJSON(FacilityGeoJSONdata, {
+   												pointToLayer: FacilityPointToLayer,
+                 				  onEachFeature: onEachFacility,
+          								filter: FacilityToFilter
+
+      									 }
+                       );
+      lastLayerAdded.addTo(map);
+    };
+    
+    var CORRECTIONAL_FACILITY_TYPEToHighlight = "";
+        
+    function highlightFacility() {     
+    	CORRECTIONAL_FACILITY_TYPEToHighlight = document
+    												.getElementById("highlightFacilityTextEntry")
+      											.value; 
+      addFacility(); 
+      CORRECTIONAL_FACILITY_TYPEToHighlight = ""; 
+    }
+
+		var FacilityGeoJSONdata;
+          
+		$.getJSON("https://raw.githubusercontent.com/hourswithjsn/MyUploads/master/GSR_CORRECTNL_FACILITIES_SV.geojson",    					
+              function(data){
+      					// Store data for later:
+			      		FacilityGeoJSONdata = data;
+      					// Create event listener for ShowAllFacility Button:
+								document
+                  .getElementById("showAllFacilityButton")
+                  .addEventListener("click", addFacility);
+      					// Create event listener for the highlightFacility Button:
+      					document
+                  .getElementById("highlightFacilityButton")
+                  .addEventListener("click", highlightFacility);
+      
+    					}
+    );
+
+ 	   
+  </script>
+
+</body>
+</html>
