@@ -2,7 +2,7 @@
 
 ## Reflective Analysis
 
-![](InteractiveMapping/CorrectionalFacilities.JPG)
+![alt text](https://raw.githubusercontent.com/UBC-GEOB472-Spring2019/hourswithjsn-web/master/InteractiveMapping/CorrectionalFacilities.JPG)
 
 I designed an interactive map for correctional facilities in British Columbia, the intended user for this map is anyone who may be concerned
 and want to find out where the correctional facilities are located in BC as well as where different types of correctional facilities are located.
